@@ -1,5 +1,5 @@
 from secrets import token_hex
-from sqlalchemy import Column, ForeignKey,Integer,String,Date,Double
+from sqlalchemy import Boolean, Column, ForeignKey,Integer,String,Date,Double
 from database import Base
 from sqlalchemy.orm import relationship
 
@@ -25,4 +25,8 @@ class User(Base):
     email=Column(String,nullable= False)
     phone=Column(Integer,nullable= False)
     role_id=Column(String, ForeignKey('roles.role_id'))
+    hashed_password = Column(String)
+    is_active = Column(Boolean, default=False)
+    otp_secret = Column(String)
+    otp_verified = Column(Boolean, default=False)
 

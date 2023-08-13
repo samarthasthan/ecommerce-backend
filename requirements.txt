@@ -4,3 +4,7 @@ sqlalchemy
 pydantic
 python-multipart
 PyJWT
+pyotp
+passlib
+bcrypt
+pydantic[email]
