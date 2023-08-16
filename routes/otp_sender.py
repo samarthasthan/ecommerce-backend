@@ -21,9 +21,9 @@ def send_otp_email(email, otp):
     # otp_secret = base64.b32encode(random_secret_bytes).decode("utf-8")
     otp = TOTP(otp)
     one_time_password = otp.now()
-
+    message = f"Dear Customer,\n\nYour One Time Password (OTP) for FruBay is {one_time_password}, and is valid for 10 minutes. Please do not share with anyone."
     # Create the email content
-    msg = MIMEText(f"Your OTP is: {one_time_password}")
+    msg = MIMEText(message)
     msg['Subject'] = 'OTP Verification'
     msg['From'] = SENDER_EMAIL
     msg['To'] = email

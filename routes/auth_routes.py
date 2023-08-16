@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Form, Header,status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
@@ -37,7 +38,6 @@ def get_password_hash(password: str) -> str:
 @router.post("/register")
 async def register_user(
     first_name: str= Form(...) ,
-    middle_name: str = Form(...),
     last_name: str = Form(...),
     email: EmailStr = Form(...),
     phone: int= Form(...) ,
@@ -60,12 +60,12 @@ async def register_user(
         hashed_password = get_password_hash(password)
         user = User(
             first_name=first_name,
-            middle_name=middle_name,
             last_name=last_name,
             email=email,
             phone=phone,
             hashed_password=hashed_password,
             otp_secret=otp_secret
+            
         )
         db.add(user)
         db.commit()
@@ -102,7 +102,8 @@ async def verify_otp(
 
 
 JWT_SECRET = "9d207bf0-10f5-4d8f-a479-22ff5aeff8d1"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_DAYS = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = ACCESS_TOKEN_EXPIRE_DAYS * 24 * 60
 
 # OAuth2PasswordBearer allows you to retrieve the token from the request
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -139,10 +140,15 @@ async def login(
     db: Session = Depends(get_db)
 ):
     user = get_user(db, email)
-    if not user or not verify_password(password, user.hashed_password):
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="User not found using this email id",
+        )
+    if  not verify_password(password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password",
         )
     if not user.otp_verified:
         raise HTTPException(
