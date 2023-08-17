@@ -11,8 +11,9 @@ def send_otp_email(email, otp):
     SMTP_SERVER = "smtp.gmail.com"
     SMTP_PORT = 587
     SMTP_USERNAME = "samarthasthan5@gmail.com"
-    SMTP_PASSWORD = "rsllftyamztejfbe"
-    SENDER_EMAIL = "samarthasthan5@gmail.com"
+    SMTP_PASSWORD = "wdvscwdctjggmtvo"
+    SENDER_NAME = "FruBay OTP"  # Sender's name
+    SENDER_EMAIL = "noreply@frubay.com"
 
 
     # Generate an OTP using pyotp
@@ -25,7 +26,7 @@ def send_otp_email(email, otp):
     # Create the email content
     msg = MIMEText(message)
     msg['Subject'] = 'OTP Verification'
-    msg['From'] = SENDER_EMAIL
+    msg['From'] = f"{SENDER_NAME} <{SENDER_EMAIL}>"
     msg['To'] = email
 
     # Send the email using SMTP
