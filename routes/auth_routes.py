@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import time
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Form, Header,status
 from fastapi.security import OAuth2PasswordBearer
@@ -81,6 +82,7 @@ async def verify_otp(
     otp: str = Form(...),
     db: SessionLocal = Depends(get_db)
 ):
+    time.sleep(2)
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -102,7 +104,7 @@ async def verify_otp(
 
 
 JWT_SECRET = "9d207bf0-10f5-4d8f-a479-22ff5aeff8d1"
-ACCESS_TOKEN_EXPIRE_DAYS = 60
+ACCESS_TOKEN_EXPIRE_DAYS = 1
 ACCESS_TOKEN_EXPIRE_MINUTES = ACCESS_TOKEN_EXPIRE_DAYS * 24 * 60
 
 # OAuth2PasswordBearer allows you to retrieve the token from the request
@@ -139,6 +141,7 @@ async def login(
     password: str= Form(...),
     db: Session = Depends(get_db)
 ):
+    time.sleep(2)
     user = get_user(db, email)
     if not user:
         raise HTTPException(

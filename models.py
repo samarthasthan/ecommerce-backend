@@ -122,3 +122,35 @@ class ProductImage(Base):
     medium_image_url = Column(String)  # New column for the medium image URL
     large_image_url = Column(String)  # New column for the large image URL
     product = relationship("Product", back_populates="product_images")
+
+
+
+# App 
+
+class Page(Base):
+    __tablename__ = "pages"
+    page_id = Column(String, primary_key=True, default=generate_uuid, index=True)
+    page_title = Column(String, nullable=False)
+    widgets = relationship("Widget", back_populates="page")
+
+class Widget(Base):
+    __tablename__ = "widgets"
+
+    widget_id = Column(String, primary_key=True, default=generate_uuid, index=True)
+    widget_title = Column(String, nullable=False)
+    widget_type = Column(String, nullable=False)
+    rank = Column(Integer, autoincrement=True, nullable=False)
+    page_id = Column(String, ForeignKey('pages.page_id'))
+    page = relationship("Page", back_populates="widgets")
+    widget_items = relationship("WidgetItem", back_populates="widget")
+
+class WidgetItem(Base):
+    __tablename__ = "widgetitems"
+
+    widget_item_id = Column(String, primary_key=True, default=generate_uuid, index=True)
+    image_url = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    type = Column(String, nullable=False)
+    rank = Column(Integer, autoincrement=True, nullable=False)
+    widget_id = Column(String, ForeignKey('widgets.widget_id'))
+    widget = relationship("Widget", back_populates="widget_items")
