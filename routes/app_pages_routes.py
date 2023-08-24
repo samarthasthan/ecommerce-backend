@@ -13,6 +13,11 @@ async def get_pages_list(db:SessionLocal=Depends(get_db)):
     pages = db.query(models.Page).all()
     return pages
 
+@router.get('/app/pages/title',response_model=app_pages_schemas.PageOut)
+async def get_pages_by_title(page_title:str,db:SessionLocal=Depends(get_db)):
+    pages = db.query(models.Page).filter(models.Page.page_title==page_title).first()
+    return pages
+
 @router.post('/app/page')
 async def create_page(page:app_pages_schemas.PagesBase,db:SessionLocal=Depends(get_db)):
     new_page = models.Page(**page.dict())

@@ -11,6 +11,12 @@ class WidgetsBase(BaseModel):
     widget_type:str
     rank:int
     page_id:str
+    has_header:bool
+    has_background:bool
+    header:str
+    background:str
+    items_height:float
+    items_width:float
 
 class WidgetsItemsBase(BaseModel):
     image_url :str
@@ -29,6 +35,12 @@ class WidgetsOut(BaseModel):
     widget_title:str
     widget_type:str
     rank:int
+    has_header:bool
+    has_background:bool
+    header:str
+    background:str
+    items_height:float
+    items_width:float
     widget_items:List[WidgetsItemsOut]
 
 class PageOut(BaseModel):

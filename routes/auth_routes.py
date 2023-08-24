@@ -199,9 +199,24 @@ def verify_token(authorization: str = Header(...)):
         )
 
 @router.get("/protected-resource")
-async def protected_resource(email: str = Depends(verify_token)):
+async def protected_resource(email: str = Depends(verify_token),db:SessionLocal=Depends(get_db)):
     # Here, you can use the 'email' parameter for verification or authorization
-    return {"message": "Access granted for user with email: " + email}
+    user = db.query(models.User).filter(models.User.email==email).first()
+    if user:
+        return {"message": "Access granted for user with email: " + email}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    
+
+@router.get("/user/delete")
+async def delete_user(email: str = Depends(verify_token),db:SessionLocal=Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email==email).first()
+    db.delete(user)
+    db.commit()
+    return {"message": "Acoount Deleted"}
 
 
 # Function to generate new access token from refresh token

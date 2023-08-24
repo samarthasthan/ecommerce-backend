@@ -19,6 +19,13 @@ def read_categories(db: SessionLocal = Depends(get_db)):
     categories = db.query(Category).all()
     return categories
 
+@router.get("/categories/parent/{category_id}")
+def read_category_by_parent(parent_category_id: str, db: SessionLocal = Depends(get_db)):
+    category = db.query(Category).filter(Category.parent_category_id == parent_category_id).all()
+    if category is None:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return category
+
 @router.get("/categories/{category_id}")
 def read_category(category_id: str, db: SessionLocal = Depends(get_db)):
     category = db.query(Category).filter(Category.category_id == category_id).first()

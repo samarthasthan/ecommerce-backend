@@ -141,6 +141,12 @@ class Widget(Base):
     widget_type = Column(String, nullable=False)
     rank = Column(Integer, autoincrement=True, nullable=False)
     page_id = Column(String, ForeignKey('pages.page_id'))
+    has_header = Column(Boolean,nullable=False,default=True)
+    has_background = Column(Boolean,nullable=False,default=False)
+    header = Column(String)
+    background = Column(String)
+    items_height= Column(Double,nullable=False)
+    items_width= Column(Double,nullable=False)
     page = relationship("Page", back_populates="widgets")
     widget_items = relationship("WidgetItem", back_populates="widget")
 
