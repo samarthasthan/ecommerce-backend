@@ -9,4 +9,3 @@ passlib
 bcrypt
 Pillow
 requests
-pydantic[email]
