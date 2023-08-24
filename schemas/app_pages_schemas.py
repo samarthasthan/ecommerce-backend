@@ -45,8 +45,17 @@ class WidgetsOut(BaseModel):
 
 class PageOut(BaseModel):
     page_title:str
+    page_id:str
     widgets:List[WidgetsOut]
 
+class SampleWidget(BaseModel):
+    widget_type: str
+    items_height: int
+    items_width: int
+    items_count: int
+
+class SampleWidgetConfiguration(BaseModel):
+    widget: SampleWidget
 
 
 

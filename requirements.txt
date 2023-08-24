@@ -11,3 +11,4 @@ Pillow
 requests
 pydantic 
 email-validator
+urllib3
