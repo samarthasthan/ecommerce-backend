@@ -9,4 +9,5 @@ passlib
 bcrypt
 Pillow
 requests
-pydantic email-validator
+pydantic 
+email-validator
