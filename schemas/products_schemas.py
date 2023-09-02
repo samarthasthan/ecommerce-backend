@@ -6,17 +6,13 @@ from typing import List
 class ProductCreate(BaseModel):
     product_name: str
     product_description: str
-    regular_price: float
-    sale_price: float
-    stock_quantity: int
+    color:str
     categories: List[str]  # List of category IDs
 
 class ProductUpdate(BaseModel):
     product_name: str
     product_description: str
-    regular_price: float
-    sale_price: float
-    stock_quantity: int
+    color: int
 
 class CategoryCreate(BaseModel):
     category_name: str
@@ -32,6 +28,20 @@ class BulletPointCreate(BaseModel):
 class ProductImageCreate(BaseModel):
     image_type: str
     image_url: str
+
+class VariationCreate(BaseModel):
+    product_id:str
+    variation_name:str
+
+class VariationItemCreate(BaseModel):
+    variation_item_name:str
+    stock:int
+    regular_price: float
+    sale_price: float
+
+class ProductVariation(VariationCreate):
+    variation_items:List[VariationItemCreate]
+
 
 ##################################################
 
@@ -51,16 +61,32 @@ class ProductImageSchema(BaseModel):
     small_image_url: str
     medium_image_url: str
     large_image_url: str
+    
+
+class VariationItemsOut(BaseModel):
+    variation_item_name:str
+    stock:int
+    regular_price: float
+    sale_price: float
+
+class VariationOut(BaseModel):
+    variation_name:str
+    variation_items:List[VariationItemsOut]
 
 class ProductSchema(BaseModel):
     product_id: str
     product_name: str
     product_description: str
-    regular_price: float
-    sale_price: float
-    stock_quantity: int
+    color: str
     product_details: List[ProductDetailSchema]
     product_images: List[ProductImageSchema]
+    variations:List[VariationOut]
 
-class ProductListResponse(BaseModel):
+
+class SKUProductsOut(BaseModel):
+    sku_id:str
+    products: List[ProductSchema]
+
+class SKUsOut(BaseModel):
+    sku_id:str
     products: List[ProductSchema]

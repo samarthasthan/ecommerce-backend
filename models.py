@@ -86,30 +86,64 @@ class Category(Base):
     sub_categories = relationship(
         "Category", remote_side=[parent_category_id], overlaps="parent_category"
     )
-    products = relationship("Product", back_populates="category")
-
+    
     products = relationship(
         "Product", secondary=product_category_association, back_populates="categories"
     )
+
+
+class SKU(Base):
+    __tablename__ = "skus"
+
+    sku_id = Column(String, primary_key=True, default=generate_uuid, index=True)
+    products = relationship("Product", back_populates="sku")
 
 
 class Product(Base):
     __tablename__ = "products"
 
     product_id = Column(String, primary_key=True, default=generate_uuid, index=True)
+    sku_id = Column(String, ForeignKey("skus.sku_id"), nullable=False)
     product_name = Column(String, nullable=False)
     product_description = Column(String)
-    regular_price = Column(Float, nullable=False)
-    sale_price = Column(Float)
-    stock_quantity = Column(Integer, nullable=False)
+    color = Column(String, nullable=False)
 
     product_details = relationship("ProductDetail", back_populates="product")
     product_images = relationship("ProductImage", back_populates="product")
     carts = relationship("Cart", back_populates="product")
+    sku = relationship("SKU", back_populates="products")
+    variations = relationship("Variation", back_populates="product")
 
     categories = relationship(
         "Category", secondary=product_category_association, back_populates="products"
     )
+
+
+class Variation(Base):
+    __tablename__ = "variations"
+
+    variation_id = Column(String, primary_key=True, default=generate_uuid, index=True)
+    product_id = Column(String, ForeignKey("products.product_id"), nullable=False)
+    variation_name = Column(String, nullable=False)
+
+    product = relationship("Product", back_populates="variations")
+    variation_items = relationship("VariationItem", back_populates="variation")
+
+
+class VariationItem(Base):
+    __tablename__ = "varitation_items"
+
+    variation_item_id = Column(
+        String, primary_key=True, default=generate_uuid, index=True
+    )
+    variation_id = Column(String, ForeignKey("variations.variation_id"))
+    variation_item_name = Column(String, nullable=False)
+    stock = Column(Integer, nullable=False)
+    regular_price = Column(Float, nullable=False)
+    sale_price = Column(Float)
+    
+
+    variation = relationship("Variation", back_populates="variation_items")
 
 
 class ProductDetail(Base):
@@ -152,7 +186,6 @@ class Cart(Base):
 
     product = relationship("Product", back_populates="carts")
     user = relationship("User", back_populates="cart")
-
 
 
 # App

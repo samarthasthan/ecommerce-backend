@@ -3,15 +3,18 @@
 import os
 import uuid
 from PIL import Image
-from constants import base_url
 from typing import List
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from database import SessionLocal, get_db
-from models import Product, Category, ProductDetail, BulletPoint, ProductImage
+from models import Product, Category, ProductDetail, BulletPoint, ProductImage,SKU,Variation
 from schemas.products_schemas import (
-    BulletPointSchema, ProductCreate, ProductDetailCreate, BulletPointCreate, ProductDetailSchema, ProductImageSchema, ProductListResponse, ProductSchema
+    ProductCreate, ProductDetailCreate, BulletPointCreate, ProductVariation, SKUProductsOut, SKUsOut
 )
+import models
+from sqlalchemy.orm import joinedload
+from constants import base_url
+
 
 router = APIRouter(tags=['Product'])
 
@@ -27,42 +30,106 @@ def get_product_image(product_id: str, size: str, image_name: str):
 
     return FileResponse(image_path)
 
-@router.get("/products", response_model=ProductListResponse)
+@router.get("/product",response_model=SKUProductsOut)
+def get_product(sku_id:str,db: SessionLocal = Depends(get_db)):
+    sku = (
+        db.query(SKU).filter(SKU.sku_id==sku_id)
+        .options(
+            joinedload(SKU.products)
+            .joinedload(Product.product_details)
+            .joinedload(ProductDetail.bullet_points),
+            joinedload(SKU.products)
+            .joinedload(Product.product_images),
+            joinedload(SKU.products)
+            .joinedload(Product.variations)
+            .joinedload(Variation.variation_items),
+        )
+        .first()
+    )
+
+    # response_data = {"sku": []}
+
+    # products = []
+
+    # for product in sku.products:
+    #     product_details = [
+    #         ProductDetailSchema(
+    #             detail_id=detail.detail_id,
+    #             heading=detail.heading,
+    #             bullet_points=[
+    #                 BulletPointSchema(bullet_id=bullet.bullet_id, point=bullet.point)
+    #                 for bullet in detail.bullet_points
+    #             ],
+    #         )
+    #         for detail in product.product_details
+    #     ]
+    #     product_images = [
+    #         ProductImageSchema(
+    #             image_id=image.image_id,
+    #             small_image_url=base_url + image.small_image_url,
+    #             medium_image_url=base_url + image.medium_image_url,
+    #             large_image_url=base_url + image.large_image_url,
+    #         )
+    #         for image in product.product_images
+    #     ]
+    #     variations = [
+    #         VariationOut(
+    #             variation_name=variation.variation_name,
+    #             variation_items=[
+    #                 VariationItemsOut(
+    #                     variation_item_name=item.variation_item_name,
+    #                     stock=item.stock
+    #                 )
+    #                 for item in variation.variation_items
+    #             ],
+    #         )
+    #         for variation in product.variations
+    #     ]
+    #     products.append(ProductSchema(
+    #         product_id=product.product_id,
+    #         product_name=product.product_name,
+    #         product_description=product.product_description,
+    #         regular_price=product.regular_price,
+    #         sale_price=product.sale_price,
+    #         color=product.color,
+    #         product_details=product_details,
+    #         product_images=product_images,
+    #         variations=variations
+    #     ))
+
+    # response_data["sku"].append(SKUProductsOut(sku_id=sku.sku_id, products=products))
+
+    return sku
+
+@router.get("/products", response_model=List[SKUsOut])
 def get_products(db: SessionLocal = Depends(get_db)):
-    products = db.query(Product).all()
+    skus = (
+        db.query(SKU)
+        .options(
+            joinedload(SKU.products)
+            .joinedload(Product.product_details)
+            .joinedload(ProductDetail.bullet_points),
+            joinedload(SKU.products)
+            .joinedload(Product.product_images),
+            joinedload(SKU.products)
+            .joinedload(Product.variations)
+            .joinedload(Variation.variation_items),
+        )
+        .distinct(SKU.sku_id)  # Ensure only one SKU per product
+        .all()
+    )
 
-    response_data = {
-        "products": []
-    }
-     
-    for product in products:
-        product_details = []
-        for detail in product.product_details:
-            bullet_points = []
-            for bullet in detail.bullet_points:
-                bullet_points.append(BulletPointSchema(bullet_id=bullet.bullet_id, point=bullet.point))
-            product_details.append(ProductDetailSchema(detail_id=detail.detail_id, heading=detail.heading, bullet_points=bullet_points))
+    # Modify the image URLs to include the base URL
+    for sku in skus:
+        for product in sku.products:
+            for image in product.product_images:
+                image.small_image_url = f"{base_url}{image.small_image_url}"
+                image.medium_image_url = f"{base_url}{image.medium_image_url}"
+                image.large_image_url = f"{base_url}{image.large_image_url}"
 
-        product_images = []
-        for image in product.product_images:
-            product_images.append(ProductImageSchema(
-                image_id=image.image_id,
-                small_image_url=base_url + image.small_image_url,
-                medium_image_url=base_url + image.medium_image_url,
-                large_image_url=base_url + image.large_image_url
-            ))
-        response_data["products"].append(ProductSchema(
-            product_id=product.product_id,
-            product_name=product.product_name,
-            product_description=product.product_description,
-            regular_price=product.regular_price,
-            sale_price=product.sale_price,
-            stock_quantity=product.stock_quantity,
-            product_details=product_details,
-            product_images=product_images
-        ))
 
-    return response_data
+    return skus
+
 
 
 @router.get("/products/{product_id}")
@@ -91,18 +158,53 @@ def create_product(product: ProductCreate, db: SessionLocal = Depends(get_db)):
     if not categories:
         raise HTTPException(status_code=400, detail="Categories not found")
 
+    
+    new_sku=SKU()
+    db.add(new_sku)
+    db.commit()
+    db.refresh(new_sku)
+
     new_product = Product(
         product_name=product.product_name,
         product_description=product.product_description,
-        regular_price=product.regular_price,
-        sale_price=product.sale_price,
-        stock_quantity=product.stock_quantity,
-        categories=categories  # Assign the fetched categories here
+        color=product.color,
+        sku_id = new_sku.sku_id,
+        categories=categories
     )
+
 
     db.add(new_product)
     db.commit()
     db.refresh(new_product)
+
+    
+    return new_product
+
+
+@router.post("/products/sku")
+def add_product_sku(sku_id:str,product: ProductCreate, db: SessionLocal = Depends(get_db)):
+    category_ids = product.categories
+
+    # Fetch categories from the database based on the provided category IDs
+    categories = db.query(Category).filter(Category.category_id.in_(category_ids)).all()
+
+    if not categories:
+        raise HTTPException(status_code=400, detail="Categories not found")
+
+    new_product = Product(
+        product_name=product.product_name,
+        product_description=product.product_description,
+        color=product.color,
+        sku_id = sku_id,
+        categories=categories
+    )
+
+
+    db.add(new_product)
+    db.commit()
+    db.refresh(new_product)
+
+    
     return new_product
 
 @router.post("/products/{product_id}/details/")
@@ -131,8 +233,6 @@ def add_bullet_points(detail_id: str, bullet_points: List[BulletPointCreate], db
     
     db.commit()
     return new_bullet_points
-
-
 
 def save_resized_image(image_data, size, image_path):
     with Image.open(image_data) as img:
@@ -187,3 +287,33 @@ def upload_product_images(product_id: str, images: List[UploadFile] = File(...),
 
     db.commit()
     return uploaded_images
+
+
+@router.post("/products/variation")
+def create_product_variation(variation: ProductVariation, db: SessionLocal = Depends(get_db)):
+    # Create a new Variation instance
+    new_variation = models.Variation(
+        product_id=variation.product_id,
+        variation_name=variation.variation_name
+    )
+
+    # Add the new Variation instance to the database session
+    db.add(new_variation)
+    db.commit()
+    db.refresh(new_variation)
+
+    # Create VariationItem instances and add them to the database
+    for item in variation.variation_items:
+        new_variation_item = models.VariationItem(
+            variation_item_name=item.variation_item_name,
+            stock=item.stock,
+            variation_id=new_variation.variation_id,
+            regular_price=item.regular_price,
+            sale_price=item.sale_price
+        )
+        db.add(new_variation_item)
+        db.commit()
+        db.refresh(new_variation_item)
+
+    # Return a response indicating success (you can customize this)
+    return {"message": "Product variation created successfully"}

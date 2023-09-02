@@ -12,7 +12,7 @@ from routes import (
 )
 from sampledata import samplehomepage
 
-app = FastAPI()
+app = FastAPI(title='FruBay')
 models.Base.metadata.create_all(engine)
 
 app.include_router(addresses_routes.router)
