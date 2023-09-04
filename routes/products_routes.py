@@ -3,20 +3,35 @@
 import os
 import uuid
 from PIL import Image
-from typing import List
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from typing import List, Optional
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from database import SessionLocal, get_db
-from models import Product, Category, ProductDetail, BulletPoint, ProductImage,SKU,Variation
+from models import (
+    Product,
+    Category,
+    ProductDetail,
+    BulletPoint,
+    ProductImage,
+    SKU,
+    SKUCategoryAssociation,
+    Variation,
+    VariationItem,
+)
 from schemas.products_schemas import (
-    ProductCreate, ProductDetailCreate, BulletPointCreate, ProductVariation, SKUProductsOut, SKUsOut
+    ProductCreate,
+    ProductDetailCreate,
+    BulletPointCreate,
+    ProductVariation,
+    SKUOut,
 )
 import models
 from sqlalchemy.orm import joinedload
 from constants import base_url
 
 
-router = APIRouter(tags=['Product'])
+router = APIRouter(tags=["Product"])
+
 
 @router.get("/images/products/{product_id}/{size}/{image_name}")
 def get_product_image(product_id: str, size: str, image_name: str):
@@ -30,123 +45,72 @@ def get_product_image(product_id: str, size: str, image_name: str):
 
     return FileResponse(image_path)
 
-@router.get("/product",response_model=SKUProductsOut)
-def get_product(sku_id:str,db: SessionLocal = Depends(get_db)):
+
+@router.get("/product", response_model=SKUOut)
+def get_product(db: SessionLocal = Depends(get_db)):
     sku = (
-        db.query(SKU).filter(SKU.sku_id==sku_id)
-        .options(
-            joinedload(SKU.products)
-            .joinedload(Product.product_details)
-            .joinedload(ProductDetail.bullet_points),
-            joinedload(SKU.products)
-            .joinedload(Product.product_images),
-            joinedload(SKU.products)
-            .joinedload(Product.variations)
-            .joinedload(Variation.variation_items),
-        )
-        .first()
-    )
-
-    # response_data = {"sku": []}
-
-    # products = []
-
-    # for product in sku.products:
-    #     product_details = [
-    #         ProductDetailSchema(
-    #             detail_id=detail.detail_id,
-    #             heading=detail.heading,
-    #             bullet_points=[
-    #                 BulletPointSchema(bullet_id=bullet.bullet_id, point=bullet.point)
-    #                 for bullet in detail.bullet_points
-    #             ],
-    #         )
-    #         for detail in product.product_details
-    #     ]
-    #     product_images = [
-    #         ProductImageSchema(
-    #             image_id=image.image_id,
-    #             small_image_url=base_url + image.small_image_url,
-    #             medium_image_url=base_url + image.medium_image_url,
-    #             large_image_url=base_url + image.large_image_url,
-    #         )
-    #         for image in product.product_images
-    #     ]
-    #     variations = [
-    #         VariationOut(
-    #             variation_name=variation.variation_name,
-    #             variation_items=[
-    #                 VariationItemsOut(
-    #                     variation_item_name=item.variation_item_name,
-    #                     stock=item.stock
-    #                 )
-    #                 for item in variation.variation_items
-    #             ],
-    #         )
-    #         for variation in product.variations
-    #     ]
-    #     products.append(ProductSchema(
-    #         product_id=product.product_id,
-    #         product_name=product.product_name,
-    #         product_description=product.product_description,
-    #         regular_price=product.regular_price,
-    #         sale_price=product.sale_price,
-    #         color=product.color,
-    #         product_details=product_details,
-    #         product_images=product_images,
-    #         variations=variations
-    #     ))
-
-    # response_data["sku"].append(SKUProductsOut(sku_id=sku.sku_id, products=products))
-
-    return sku
-
-@router.get("/products", response_model=List[SKUsOut])
-def get_products(db: SessionLocal = Depends(get_db)):
-    skus = (
         db.query(SKU)
         .options(
             joinedload(SKU.products)
             .joinedload(Product.product_details)
             .joinedload(ProductDetail.bullet_points),
-            joinedload(SKU.products)
-            .joinedload(Product.product_images),
+            joinedload(SKU.products).joinedload(Product.product_images),
             joinedload(SKU.products)
             .joinedload(Product.variations)
             .joinedload(Variation.variation_items),
         )
         .distinct(SKU.sku_id)  # Ensure only one SKU per product
-        .all()
+        .first()
     )
 
     # Modify the image URLs to include the base URL
-    for sku in skus:
-        for product in sku.products:
-            for image in product.product_images:
-                image.small_image_url = f"{base_url}{image.small_image_url}"
-                image.medium_image_url = f"{base_url}{image.medium_image_url}"
-                image.large_image_url = f"{base_url}{image.large_image_url}"
+    for product in sku.products:
+        for image in product.product_images:
+            image.small_image_url = f"{base_url}{image.small_image_url}"
+            image.medium_image_url = f"{base_url}{image.medium_image_url}"
+            image.large_image_url = f"{base_url}{image.large_image_url}"
+
+    return sku
 
 
-    return skus
+@router.get("/products")
+def get_products(
+    page: int = Query(1, description="Page number", ge=1),
+    per_page: int = Query(10, description="Items per page", le=100),
+    db: SessionLocal = Depends(get_db),
+):
+    # Calculate the offset based on page number and items per page
+    offset = (page - 1) * per_page
+    
+    products = (
+        db.query(Product)
+        .join(Variation, Product.product_id == Variation.product_id)
+        .join(VariationItem, Variation.variation_id == VariationItem.variation_id)
+        .join(ProductImage, Product.product_id == ProductImage.product_id)
+        .distinct(Product.product_id)
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
 
+    products = [
+        {
+            "sku_id": product.sku_id,
+            "product_id": product.product_id,
+            "product_name": product.product_name,
+            "product_image": f"{base_url}{product.product_images[0].small_image_url}",
+            "regular_price": product.variations[0].variation_items[0].regular_price,
+            "sale_price": product.variations[0].variation_items[0].sale_price,
+        }
+        for product in products
+    ]
 
-
-@router.get("/products/{product_id}")
-def read_product(product_id: str, db: SessionLocal = Depends(get_db)):
-    product = db.query(Product).filter(Product.product_id == product_id).first()
-    if product is None:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return product
-
-@router.get("/categories/{category_id}/products/")
-def get_products_by_category(category_id: str, db: SessionLocal = Depends(get_db)):
-    category = db.query(Category).filter(Category.category_id == category_id).first()
-    if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
-
-    products = category.products
     return products
+
+
+####################################################################
+# Post APIs
+
 
 @router.post("/products/")
 def create_product(product: ProductCreate, db: SessionLocal = Depends(get_db)):
@@ -158,31 +122,39 @@ def create_product(product: ProductCreate, db: SessionLocal = Depends(get_db)):
     if not categories:
         raise HTTPException(status_code=400, detail="Categories not found")
 
-    
-    new_sku=SKU()
+    # Create a new SKU
+    new_sku = SKU()
     db.add(new_sku)
     db.commit()
     db.refresh(new_sku)
 
+    # Create an association between SKU and categories
+    for category in categories:
+        sku_category_assoc = SKUCategoryAssociation(
+            sku_id=new_sku.sku_id, category_id=category.category_id
+        )
+        db.add(sku_category_assoc)
+
+    # Create a new product associated with the SKU
     new_product = Product(
         product_name=product.product_name,
         product_description=product.product_description,
         color=product.color,
-        sku_id = new_sku.sku_id,
-        categories=categories
+        color_hex=product.color_hex,
+        sku_id=new_sku.sku_id,
     )
-
 
     db.add(new_product)
     db.commit()
     db.refresh(new_product)
 
-    
     return new_product
 
 
 @router.post("/products/sku")
-def add_product_sku(sku_id:str,product: ProductCreate, db: SessionLocal = Depends(get_db)):
+def add_product_sku(
+    sku_id: str, product: ProductCreate, db: SessionLocal = Depends(get_db)
+):
     category_ids = product.categories
 
     # Fetch categories from the database based on the provided category IDs
@@ -191,53 +163,71 @@ def add_product_sku(sku_id:str,product: ProductCreate, db: SessionLocal = Depend
     if not categories:
         raise HTTPException(status_code=400, detail="Categories not found")
 
+    # Create a new product associated with the specified SKU
     new_product = Product(
         product_name=product.product_name,
         product_description=product.product_description,
         color=product.color,
-        sku_id = sku_id,
-        categories=categories
+        color_hex=product.color_hex,
+        sku_id=sku_id,
     )
-
 
     db.add(new_product)
     db.commit()
     db.refresh(new_product)
 
-    
     return new_product
 
+
 @router.post("/products/{product_id}/details/")
-def add_product_detail(product_id: str, product_detail: ProductDetailCreate, db: SessionLocal = Depends(get_db)):
+def add_product_detail(
+    product_id: str,
+    product_detail: ProductDetailCreate,
+    db: SessionLocal = Depends(get_db),
+):
     product = db.query(Product).filter(Product.product_id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    
+
     new_detail = ProductDetail(**product_detail.dict(), product=product)
     db.add(new_detail)
     db.commit()
     db.refresh(new_detail)
     return new_detail
 
+
 @router.post("/products/details/{detail_id}/bulletpoints/")
-def add_bullet_points(detail_id: str, bullet_points: List[BulletPointCreate], db: SessionLocal = Depends(get_db)):
-    product_detail = db.query(ProductDetail).filter(ProductDetail.detail_id == detail_id).first()
+def add_bullet_points(
+    detail_id: str,
+    bullet_points: List[BulletPointCreate],
+    db: SessionLocal = Depends(get_db),
+):
+    product_detail = (
+        db.query(ProductDetail).filter(ProductDetail.detail_id == detail_id).first()
+    )
     if not product_detail:
         raise HTTPException(status_code=404, detail="Product Detail not found")
-    
+
     new_bullet_points = []
     for bullet_point_data in bullet_points:
-        bullet_point = BulletPoint(**bullet_point_data.dict(), product_detail=product_detail)
+        bullet_point = BulletPoint(
+            **bullet_point_data.dict(), product_detail=product_detail
+        )
         db.add(bullet_point)
         new_bullet_points.append(bullet_point)
-    
+
     db.commit()
     return new_bullet_points
 
+
 def save_resized_image(image_data, size, image_path):
     with Image.open(image_data) as img:
+        # Convert RGBA to RGB if the image has an alpha channel
+        if img.mode == "RGBA":
+            img = img.convert("RGB")
         img.thumbnail(size)
         img.save(image_path, "JPEG")
+
 
 def save_images_for_product(images, product_id):
     base_folder = "images"
@@ -246,7 +236,7 @@ def save_images_for_product(images, product_id):
     for image in images:
         image_data = image.file
         image_extension = image.filename.split(".")[-1]
-        
+
         image_folder = os.path.join(base_folder, "products", product_id)
         small_image_folder = os.path.join(image_folder, "small")
         medium_image_folder = os.path.join(image_folder, "medium")
@@ -260,7 +250,7 @@ def save_images_for_product(images, product_id):
             os.makedirs(large_image_folder)
 
         image_name = f"{uuid.uuid4()}.{image_extension}"
-        
+
         small_image_path = os.path.join(small_image_folder, image_name)
         medium_image_path = os.path.join(medium_image_folder, image_name)
         large_image_path = os.path.join(large_image_folder, image_name)
@@ -269,19 +259,25 @@ def save_images_for_product(images, product_id):
         save_resized_image(image_data, (900, 900), medium_image_path)
         save_resized_image(image_data, (1200, 1200), large_image_path)
 
-        new_image = ProductImage(product_id=product_id,
-                                 small_image_url=small_image_path,
-                                 medium_image_url=medium_image_path,
-                                 large_image_url=large_image_path)
+        new_image = ProductImage(
+            product_id=product_id,
+            small_image_url=small_image_path,
+            medium_image_url=medium_image_path,
+            large_image_url=large_image_path,
+        )
         uploaded_images.append(new_image)
 
     return uploaded_images
 
+
 @router.post("/products/images/")
-def upload_product_images(product_id: str, images: List[UploadFile] = File(...),
-                          db: SessionLocal = Depends(get_db)):
+def upload_product_images(
+    product_id: str,
+    images: List[UploadFile] = File(...),
+    db: SessionLocal = Depends(get_db),
+):
     uploaded_images = save_images_for_product(images, product_id)
-    
+
     for image in uploaded_images:
         db.add(image)
 
@@ -290,11 +286,12 @@ def upload_product_images(product_id: str, images: List[UploadFile] = File(...),
 
 
 @router.post("/products/variation")
-def create_product_variation(variation: ProductVariation, db: SessionLocal = Depends(get_db)):
+def create_product_variation(
+    variation: ProductVariation, db: SessionLocal = Depends(get_db)
+):
     # Create a new Variation instance
     new_variation = models.Variation(
-        product_id=variation.product_id,
-        variation_name=variation.variation_name
+        product_id=variation.product_id, variation_name=variation.variation_name
     )
 
     # Add the new Variation instance to the database session
@@ -309,7 +306,7 @@ def create_product_variation(variation: ProductVariation, db: SessionLocal = Dep
             stock=item.stock,
             variation_id=new_variation.variation_id,
             regular_price=item.regular_price,
-            sale_price=item.sale_price
+            sale_price=item.sale_price,
         )
         db.add(new_variation_item)
         db.commit()

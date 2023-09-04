@@ -7,12 +7,14 @@ class ProductCreate(BaseModel):
     product_name: str
     product_description: str
     color:str
+    color_hex: str
     categories: List[str]  # List of category IDs
 
 class ProductUpdate(BaseModel):
     product_name: str
     product_description: str
-    color: int
+    color: str
+    color_hex: str
 
 class CategoryCreate(BaseModel):
     category_name: str
@@ -47,16 +49,16 @@ class ProductVariation(VariationCreate):
 
 
 
-class BulletPointSchema(BaseModel):
+class BulletPointOut(BaseModel):
     bullet_id: str
     point: str
 
-class ProductDetailSchema(BaseModel):
+class ProductDetailOut(BaseModel):
     detail_id: str
     heading: str
-    bullet_points: List[BulletPointSchema]
+    bullet_points: List[BulletPointOut]
 
-class ProductImageSchema(BaseModel):
+class ProductImageOut(BaseModel):
     image_id: str
     small_image_url: str
     medium_image_url: str
@@ -73,20 +75,17 @@ class VariationOut(BaseModel):
     variation_name:str
     variation_items:List[VariationItemsOut]
 
-class ProductSchema(BaseModel):
+class ProductOut(BaseModel):
     product_id: str
     product_name: str
     product_description: str
     color: str
-    product_details: List[ProductDetailSchema]
-    product_images: List[ProductImageSchema]
+    color_hex: str
+    product_details: List[ProductDetailOut]
+    product_images: List[ProductImageOut]
     variations:List[VariationOut]
 
 
-class SKUProductsOut(BaseModel):
+class SKUOut(BaseModel):
     sku_id:str
-    products: List[ProductSchema]
-
-class SKUsOut(BaseModel):
-    sku_id:str
-    products: List[ProductSchema]
+    products: List[ProductOut]

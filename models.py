@@ -18,13 +18,15 @@ def generate_uuid():
     return token_hex(16)
 
 
-product_category_association = Table(
-    "product_category_association",
-    Base.metadata,
-    Column("product_id", String, ForeignKey("products.product_id")),
-    Column("category_id", String, ForeignKey("categories.category_id")),
-)
+class SKUCategoryAssociation(Base):
+    __tablename__ = "sku_category_association"
 
+    sku_id = Column(String, ForeignKey("skus.sku_id"), primary_key=True)
+    category_id = Column(String, ForeignKey("categories.category_id"), primary_key=True)
+
+    # Define relationships to SKU and Category models with distinct names
+    sku_rel = relationship("SKU", back_populates="category_assocs")
+    category_rel = relationship("Category", back_populates="sku_assocs")
 
 class Role(Base):
     __tablename__ = "roles"
@@ -86,10 +88,9 @@ class Category(Base):
     sub_categories = relationship(
         "Category", remote_side=[parent_category_id], overlaps="parent_category"
     )
-    
-    products = relationship(
-        "Product", secondary=product_category_association, back_populates="categories"
-    )
+
+    sku_assocs = relationship("SKUCategoryAssociation", back_populates="category_rel")
+
 
 
 class SKU(Base):
@@ -97,6 +98,9 @@ class SKU(Base):
 
     sku_id = Column(String, primary_key=True, default=generate_uuid, index=True)
     products = relationship("Product", back_populates="sku")
+
+    category_assocs = relationship("SKUCategoryAssociation", back_populates="sku_rel")
+
 
 
 class Product(Base):
@@ -107,16 +111,13 @@ class Product(Base):
     product_name = Column(String, nullable=False)
     product_description = Column(String)
     color = Column(String, nullable=False)
+    color_hex = Column(String, nullable=False)
 
     product_details = relationship("ProductDetail", back_populates="product")
     product_images = relationship("ProductImage", back_populates="product")
     carts = relationship("Cart", back_populates="product")
     sku = relationship("SKU", back_populates="products")
     variations = relationship("Variation", back_populates="product")
-
-    categories = relationship(
-        "Category", secondary=product_category_association, back_populates="products"
-    )
 
 
 class Variation(Base):
@@ -141,7 +142,6 @@ class VariationItem(Base):
     stock = Column(Integer, nullable=False)
     regular_price = Column(Float, nullable=False)
     sale_price = Column(Float)
-    
 
     variation = relationship("Variation", back_populates="variation_items")
 

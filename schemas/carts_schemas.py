@@ -7,7 +7,7 @@ class CartBase(BaseModel):
     user_id: str
 
 class CartOut(BaseModel):
-    product:products_schemas.ProductSchema
+    product:products_schemas.ProductOut
     quantity:int
 
     class Config:
