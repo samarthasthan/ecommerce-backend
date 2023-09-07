@@ -1,10 +1,11 @@
 # product_routes.py
 
 import os
+import time
 import uuid
 from PIL import Image
 from typing import List, Optional
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from database import SessionLocal, get_db
 from models import (
@@ -47,9 +48,10 @@ def get_product_image(product_id: str, size: str, image_name: str):
 
 
 @router.get("/product", response_model=SKUOut)
-def get_product(db: SessionLocal = Depends(get_db)):
+def get_product(sku_id: str ,db: SessionLocal = Depends(get_db)):
     sku = (
         db.query(SKU)
+        .filter(SKU.sku_id == sku_id)  # Filter by SKU ID
         .options(
             joinedload(SKU.products)
             .joinedload(Product.product_details)
@@ -81,7 +83,6 @@ def get_products(
 ):
     # Calculate the offset based on page number and items per page
     offset = (page - 1) * per_page
-    
     products = (
         db.query(Product)
         .join(Variation, Product.product_id == Variation.product_id)

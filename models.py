@@ -53,6 +53,7 @@ class User(Base):
 
     addresses = relationship("Address", back_populates="user")
     cart = relationship("Cart", back_populates="user")
+    wishlist = relationship("WishList", back_populates="user")
 
 
 class Address(Base):
@@ -116,6 +117,7 @@ class Product(Base):
     product_details = relationship("ProductDetail", back_populates="product")
     product_images = relationship("ProductImage", back_populates="product")
     carts = relationship("Cart", back_populates="product")
+    wishlists = relationship("WishList", back_populates="product")
     sku = relationship("SKU", back_populates="products")
     variations = relationship("Variation", back_populates="product")
 
@@ -181,11 +183,22 @@ class Cart(Base):
 
     cart_id = Column(String, primary_key=True, default=generate_uuid, index=True)
     quantity = Column(Integer, nullable=False)
+    variation_item_id=Column(String, ForeignKey("varitation_items.variation_item_id"))
     product_id = Column(String, ForeignKey("products.product_id"))
     user_id = Column(String, ForeignKey("users.user_id"))
 
     product = relationship("Product", back_populates="carts")
     user = relationship("User", back_populates="cart")
+
+class WishList(Base):
+    __tablename__ = "wishlists"
+
+    wishlist_id = Column(String, primary_key=True, default=generate_uuid, index=True)
+    product_id = Column(String, ForeignKey("products.product_id"))
+    user_id = Column(String, ForeignKey("users.user_id"))
+
+    product = relationship("Product", back_populates="wishlists")
+    user = relationship("User", back_populates="wishlist")
 
 
 # App

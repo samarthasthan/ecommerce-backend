@@ -97,6 +97,8 @@ async def register_user(
 ):
     existing_user = db.query(User).filter(User.email == user_data.email).first()
 
+    print(user_data)
+
     if existing_user:
         if not existing_user.otp_verified:
             # User exists but OTP is not verified, resend OTP
