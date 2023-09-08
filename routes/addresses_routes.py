@@ -8,7 +8,7 @@ from schemas.addresses_schemas import AddressCreate,AddressUpdate
 
 router = APIRouter(tags=['Address'])
 
-@router.post("/addresses/")
+@router.post("/addresses")
 def create_address( address: AddressCreate, db: SessionLocal = Depends(get_db)):
     new_address = Address(**address.dict())
     db.add(new_address)
@@ -16,7 +16,7 @@ def create_address( address: AddressCreate, db: SessionLocal = Depends(get_db)):
     db.refresh(new_address)
     return new_address
 
-@router.get("/addresses/")
+@router.get("/addresses")
 def read_addresses(user_id: str,db: SessionLocal = Depends(get_db)):
     addresses = db.query(Address).filter(Address.user_id == user_id).all()
     return addresses

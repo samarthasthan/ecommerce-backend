@@ -20,6 +20,7 @@ with open(csv_file_path, 'r', newline='') as csv_file:
     for row in csv_reader:
         # Create Category objects for each row
         category = Category(
+            category_id=row['category_id'],
             category_name=row['category_name'],
             category_description=row['category_description'],
             parent_category_id=row['parent_category_id']

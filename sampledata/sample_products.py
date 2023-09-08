@@ -6,8 +6,8 @@ import webcolors
 import concurrent.futures
 
 # Define the API endpoint URLs
-api_url = "http://127.0.0.1:8000/products/"
-sku_url = "http://127.0.0.1:8000/products/sku?sku_id="
+api_url = "http://127.0.0.1:8000/product"
+sku_url = "http://127.0.0.1:8000/product/sku?sku_id="
 
 valid_color_names = list(webcolors.CSS3_HEX_TO_NAMES.values())
 
@@ -71,8 +71,9 @@ category_ids = [
     "331bdea3d9914094e4cac62c4cbdfb84",
     "92d60e987644cf0848fb2c1541967d2e",
     "01f4f7c2ecf08fc22c9e0b4c7824f8a6",
-    "b238b096764590ab2af2560c46c3631e"
+    "b238b096764590ab2af2560c46c3631e",
 ]
+
 
 # Function to generate random string
 def random_string(length):
@@ -82,7 +83,7 @@ def random_string(length):
 
 # Function to generate random product data
 def generate_random_product():
-    list=[]
+    list = []
     for i in range(random.randint(1, 5)):
         list.append(random.choice(category_ids))
     random_color_name = random.choice(valid_color_names)
@@ -138,7 +139,7 @@ def download_image(product_name, color, image_path):
 
 # Function to upload images
 def upload_images(product_id, image_paths):
-    upload_url = api_url + "images/?product_id=" + product_id
+    upload_url = api_url + "/images?product_id=" + product_id
 
     files = []
     for image_path in image_paths:
@@ -158,7 +159,7 @@ def upload_images(product_id, image_paths):
 
 
 def create_product_variations(product_id, variations_data):
-    variation_url = api_url + "variation"
+    variation_url = api_url + "/variation"
 
     for variation_data in variations_data:
         variation_data["product_id"] = product_id
@@ -239,7 +240,7 @@ def add_products_and_details():
             "product_id": response_data.get("product_id"),
         }
         size_fit_detail_response = send_post_request(
-            api_url + response_data.get("product_id") + "/details/",
+            api_url + "/" + response_data.get("product_id") + "/details",
             size_fit_detail_data,
         )
         if size_fit_detail_response:
@@ -253,9 +254,9 @@ def add_products_and_details():
         ]
         size_fit_bullet_points_response = send_post_request(
             api_url
-            + "details/"
+            + "/details/"
             + size_fit_detail_response.get("detail_id")
-            + "/bulletpoints/",
+            + "/bulletpoints",
             size_fit_bullet_points_data,
         )
         if size_fit_bullet_points_response:
@@ -269,7 +270,7 @@ def add_products_and_details():
             "product_id": response_data.get("product_id"),
         }
         material_care_detail_response = send_post_request(
-            api_url + response_data.get("product_id") + "/details/",
+            api_url +"/"+ response_data.get("product_id") + "/details",
             material_care_detail_data,
         )
         if material_care_detail_response:
@@ -284,9 +285,9 @@ def add_products_and_details():
         ]
         material_care_bullet_points_response = send_post_request(
             api_url
-            + "details/"
+            + "/details/"
             + material_care_detail_response.get("detail_id")
-            + "/bulletpoints/",
+            + "/bulletpoints",
             material_care_bullet_points_data,
         )
         if material_care_bullet_points_response:
@@ -361,7 +362,7 @@ def add_products_and_details():
                     "product_id": response_data.get("product_id"),
                 }
                 size_fit_detail_response = send_post_request(
-                    api_url + response_data.get("product_id") + "/details/",
+                    api_url +"/"+ response_data.get("product_id") + "/details",
                     size_fit_detail_data,
                 )
                 if size_fit_detail_response:
@@ -375,9 +376,9 @@ def add_products_and_details():
                 ]
                 size_fit_bullet_points_response = send_post_request(
                     api_url
-                    + "details/"
+                    + "/details/"
                     + size_fit_detail_response.get("detail_id")
-                    + "/bulletpoints/",
+                    + "/bulletpoints",
                     size_fit_bullet_points_data,
                 )
                 if size_fit_bullet_points_response:
@@ -391,7 +392,7 @@ def add_products_and_details():
                     "product_id": response_data.get("product_id"),
                 }
                 material_care_detail_response = send_post_request(
-                    api_url + response_data.get("product_id") + "/details/",
+                    api_url +"/"+ response_data.get("product_id") + "/details",
                     material_care_detail_data,
                 )
                 if material_care_detail_response:
@@ -406,9 +407,9 @@ def add_products_and_details():
                 ]
                 material_care_bullet_points_response = send_post_request(
                     api_url
-                    + "details/"
+                    + "/details/"
                     + material_care_detail_response.get("detail_id")
-                    + "/bulletpoints/",
+                    + "/bulletpoints",
                     material_care_bullet_points_data,
                 )
                 if material_care_bullet_points_response:
@@ -416,8 +417,9 @@ def add_products_and_details():
                         f"'Material & Care' Bullet points added with IDs: {[bp.get('bullet_id') for bp in material_care_bullet_points_response]}"
                     )
 
+
 print("How many times you wanna run this? - ")
-n=int(input())
+n = int(input())
 for i in range(n):
     print(f"\n\nRunning for ${i+1}th time....\n\n")
     add_products_and_details()

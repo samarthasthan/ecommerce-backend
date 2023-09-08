@@ -6,7 +6,7 @@ from schemas.category_schemas import CategoryCreate, CategoryUpdate
 
 router = APIRouter(tags=['Category'])
 
-@router.post("/categories/")
+@router.post("/categories")
 def create_category(category: CategoryCreate, db: SessionLocal = Depends(get_db)):
     new_category = Category(**category.dict())
     db.add(new_category)
@@ -14,7 +14,7 @@ def create_category(category: CategoryCreate, db: SessionLocal = Depends(get_db)
     db.refresh(new_category)
     return new_category
 
-@router.get("/categories/")
+@router.get("/categories")
 def read_categories(db: SessionLocal = Depends(get_db)):
     categories = db.query(Category).all()
     return categories

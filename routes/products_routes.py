@@ -118,7 +118,7 @@ def get_products(
     return products
 
 
-@router.post("/products/filters")
+@router.post("/products")
 def get_products(
     category_id: str,
     filters: Optional[List[Filters]] = Body(None, description="Selected filters"),
@@ -417,7 +417,7 @@ def get_options(
 # Post APIs
 
 
-@router.post("/products/")
+@router.post("/product")
 def create_product(product: ProductCreate, db: SessionLocal = Depends(get_db)):
     category_ids = product.categories
 
@@ -456,7 +456,7 @@ def create_product(product: ProductCreate, db: SessionLocal = Depends(get_db)):
     return new_product
 
 
-@router.post("/products/sku")
+@router.post("/product/sku")
 def add_product_sku(
     sku_id: str, product: ProductCreate, db: SessionLocal = Depends(get_db)
 ):
@@ -484,7 +484,7 @@ def add_product_sku(
     return new_product
 
 
-@router.post("/products/{product_id}/details/")
+@router.post("/product/{product_id}/details")
 def add_product_detail(
     product_id: str,
     product_detail: ProductDetailCreate,
@@ -501,7 +501,7 @@ def add_product_detail(
     return new_detail
 
 
-@router.post("/products/details/{detail_id}/bulletpoints/")
+@router.post("/product/details/{detail_id}/bulletpoints")
 def add_bullet_points(
     detail_id: str,
     bullet_points: List[BulletPointCreate],
@@ -575,7 +575,7 @@ def save_images_for_product(images, product_id):
     return uploaded_images
 
 
-@router.post("/products/images/")
+@router.post("/product/images")
 def upload_product_images(
     product_id: str,
     images: List[UploadFile] = File(...),
@@ -590,7 +590,7 @@ def upload_product_images(
     return uploaded_images
 
 
-@router.post("/products/variation")
+@router.post("/product/variation")
 def create_product_variation(
     variation: ProductVariation, db: SessionLocal = Depends(get_db)
 ):

@@ -109,7 +109,7 @@ for category_data in categories_data:
     category_create_command = [
         'curl',
         '-X', 'POST',
-        'http://127.0.0.1:8000/categories/',
+        'http://127.0.0.1:8000/categories',
         '-H', 'accept: application/json',
         '-H', 'Content-Type: application/json',
         '-d', f'{{"category_name": "{category_data["category_name"]}", "category_description": "{category_data["category_name"]}", "parent_category_id": "6abda60ac52bfdad4d281dc19eb378f9"}}'
@@ -117,7 +117,7 @@ for category_data in categories_data:
     subprocess.run(category_create_command, stdout=subprocess.PIPE)
     
     # Get the created category's ID
-    category_id_command = ['curl', '-s', 'http://127.0.0.1:8000/categories/']
+    category_id_command = ['curl', '-s', 'http://127.0.0.1:8000/categories']
     response = subprocess.run(category_id_command, stdout=subprocess.PIPE, text=True)
     category_id = [cat['category_id'] for cat in eval(response.stdout) if cat['category_name'] == category_data["category_name"]][0]
     
@@ -126,7 +126,7 @@ for category_data in categories_data:
         subcategory_create_command = [
             'curl',
             '-X', 'POST',
-            'http://127.0.0.1:8000/categories/',
+            'http://127.0.0.1:8000/categories',
             '-H', 'accept: application/json',
             '-H', 'Content-Type: application/json',
             '-d', f'{{"category_name": "{subcategory_name}", "category_description": "{subcategory_name}", "parent_category_id": "{category_id}"}}'
