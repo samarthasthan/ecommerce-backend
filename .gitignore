@@ -2,5 +2,6 @@
 /env/
 /.vscode/
 images/
+sampledata/temp_images/
 database.db
 Spacefile

@@ -89,3 +89,10 @@ class ProductOut(BaseModel):
 class SKUOut(BaseModel):
     sku_id:str
     products: List[ProductOut]
+
+
+#########################################################
+
+class Filters(BaseModel):
+    filter_name:str
+    filter_item_names:List[str]

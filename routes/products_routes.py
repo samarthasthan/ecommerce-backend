@@ -7,6 +7,7 @@ from PIL import Image
 from typing import List, Optional
 from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
+from sqlalchemy import func
 from database import SessionLocal, get_db
 from models import (
     Product,
@@ -16,6 +17,7 @@ from models import (
     ProductImage,
     SKU,
     SKUCategoryAssociation,
+    User,
     Variation,
     VariationItem,
 )
@@ -25,9 +27,10 @@ from schemas.products_schemas import (
     BulletPointCreate,
     ProductVariation,
     SKUOut,
+    Filters,
 )
 import models
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, defer, load_only
 from constants import base_url
 
 
@@ -48,7 +51,7 @@ def get_product_image(product_id: str, size: str, image_name: str):
 
 
 @router.get("/product", response_model=SKUOut)
-def get_product(sku_id: str ,db: SessionLocal = Depends(get_db)):
+def get_product(sku_id: str, db: SessionLocal = Depends(get_db)):
     sku = (
         db.query(SKU)
         .filter(SKU.sku_id == sku_id)  # Filter by SKU ID
@@ -77,14 +80,20 @@ def get_product(sku_id: str ,db: SessionLocal = Depends(get_db)):
 
 @router.get("/products")
 def get_products(
+    category_id: str,
     page: int = Query(1, description="Page number", ge=1),
-    per_page: int = Query(10, description="Items per page", le=100),
+    per_page: int = Query(10, description="Items per page", le=1000),
     db: SessionLocal = Depends(get_db),
 ):
     # Calculate the offset based on page number and items per page
     offset = (page - 1) * per_page
+
     products = (
         db.query(Product)
+        .join(SKU, SKU.sku_id == Product.sku_id)
+        .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+        .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+        .filter(Category.category_id == category_id)
         .join(Variation, Product.product_id == Variation.product_id)
         .join(VariationItem, Variation.variation_id == VariationItem.variation_id)
         .join(ProductImage, Product.product_id == ProductImage.product_id)
@@ -107,6 +116,301 @@ def get_products(
     ]
 
     return products
+
+
+@router.post("/products/filters")
+def get_products(
+    category_id: str,
+    filters: Optional[List[Filters]] = Body(None, description="Selected filters"),
+    colors: Optional[List[str]] = Body(None, description="Selected colors"),
+    page: int = Query(1, description="Page number", ge=1),
+    per_page: int = Query(10, description="Items per page", le=1000),
+    db: SessionLocal = Depends(get_db),
+):
+    # Calculate the offset based on page number and items per page
+    offset = (page - 1) * per_page
+    if filters is not None and colors is not None:
+        variation_item_name = []
+        variation_name = []
+        for filter in filters:
+            variation_name.append(filter.filter_name)
+            for name in filter.filter_item_names:
+                variation_item_name.append(name)
+        products = (
+            db.query(Product)
+            .filter(Product.color.in_(colors))
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .join(Variation, Product.product_id == Variation.product_id)
+            .filter(Variation.variation_name.in_(variation_name))
+            .join(VariationItem, Variation.variation_id == VariationItem.variation_id)
+            .filter(VariationItem.variation_item_name.in_(variation_item_name))
+            .join(ProductImage, Product.product_id == ProductImage.product_id)
+            .distinct(Product.product_id)
+            .offset(offset)
+            .limit(per_page)
+            .all()
+        )
+    elif filters is not None and colors is None:
+        variation_item_name = []
+        variation_name = []
+        for filter in filters:
+            variation_name.append(filter.filter_name)
+            for name in filter.filter_item_names:
+                variation_item_name.append(name)
+        products = (
+            db.query(Product)
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .join(Variation, Product.product_id == Variation.product_id)
+            .filter(Variation.variation_name.in_(variation_name))
+            .join(VariationItem, Variation.variation_id == VariationItem.variation_id)
+            .filter(VariationItem.variation_item_name.in_(variation_item_name))
+            .join(ProductImage, Product.product_id == ProductImage.product_id)
+            .distinct(Product.product_id)
+            .offset(offset)
+            .limit(per_page)
+            .all()
+        )
+    elif colors is not None and filters is None:
+        products = (
+            db.query(Product)
+            .filter(Product.color.in_(colors))
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .join(Variation, Product.product_id == Variation.product_id)
+            .join(VariationItem, Variation.variation_id == VariationItem.variation_id)
+            .join(ProductImage, Product.product_id == ProductImage.product_id)
+            .distinct(Product.product_id)
+            .offset(offset)
+            .limit(per_page)
+            .all()
+        )
+    else:
+        products = (
+            db.query(Product)
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .join(Variation, Product.product_id == Variation.product_id)
+            .join(VariationItem, Variation.variation_id == VariationItem.variation_id)
+            .join(ProductImage, Product.product_id == ProductImage.product_id)
+            .distinct(Product.product_id)
+            .offset(offset)
+            .limit(per_page)
+            .all()
+        )
+
+    products = [
+        {
+            "sku_id": product.sku_id,
+            "product_id": product.product_id,
+            "product_name": product.product_name,
+            "product_image": f"{base_url}{product.product_images[0].small_image_url}",
+            "regular_price": product.variations[0].variation_items[0].regular_price,
+            "sale_price": product.variations[0].variation_items[0].sale_price,
+            # "color":product.color,
+            # "variation": product.variations,
+            
+        }
+        for product in products
+    ]
+
+    return products
+
+
+def getOptions(category_id, db, filters, colors):
+    if filters is None and colors is not None:
+        print("colors only")
+        variations_query = (
+            db.query(
+                Variation.variation_name,
+                VariationItem.variation_item_name,
+                func.count().label("count"),
+            )
+            .join(VariationItem, VariationItem.variation_id == Variation.variation_id)
+            .join(Product, Product.product_id == Variation.product_id)
+            .filter(Product.color.in_(colors))
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .group_by(Variation.variation_name, VariationItem.variation_item_name)
+            .all()
+        )
+    elif filters is not None and colors is None:
+        print("only filters")
+        variations_query = (
+            db.query(
+                Variation.variation_name,
+                VariationItem.variation_item_name,
+                func.count().label("count"),
+            )
+            .join(VariationItem, VariationItem.variation_id == Variation.variation_id)
+            .join(Product, Product.product_id == Variation.product_id)
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .group_by(Variation.variation_name, VariationItem.variation_item_name)
+            .all()
+        )
+    elif filters is not None and colors is not None:
+        print("Both filters and colors")
+        variations_query = (
+            db.query(
+                Variation.variation_name,
+                VariationItem.variation_item_name,
+                func.count().label("count"),
+            )
+            .join(VariationItem, VariationItem.variation_id == Variation.variation_id)
+            .join(Product, Product.product_id == Variation.product_id)
+            .filter(Product.color.in_(colors))
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .group_by(Variation.variation_name, VariationItem.variation_item_name)
+            .all()
+        )
+    else:
+        print("No filter")
+        variations_query = (
+            db.query(
+                Variation.variation_name,
+                VariationItem.variation_item_name,
+                func.count().label("count"),
+            )
+            .join(VariationItem, VariationItem.variation_id == Variation.variation_id)
+            .join(Product, Product.product_id == Variation.product_id)
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .group_by(Variation.variation_name, VariationItem.variation_item_name)
+            .all()
+        )
+
+    variation_obj = {}
+    for variation_name, variation_item_name, count in variations_query:
+        if variation_name not in variation_obj:
+            variation_obj[variation_name] = []
+        variation_obj[variation_name].append(
+            {"name": variation_item_name, "product_count": count}
+        )
+
+    return variation_obj
+
+
+@router.post("/products/options")
+def get_options(
+    category_id: str,
+    filters: Optional[List[Filters]] = Body(None, description="Selected filters"),
+    colors: Optional[List[str]] = Body(None, description="Selected colors"),
+    db: SessionLocal = Depends(get_db),
+):
+    if filters is None and colors is not None:
+        print("colors only")
+        options = getOptions(
+            category_id=category_id, db=db, filters=None, colors=colors
+        )
+        color_counts_subquery = (
+            db.query(
+                Product.color, Product.color_hex, func.count().label("product_count")
+            )
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .group_by(Product.color, Product.color_hex)
+            .subquery()
+        )
+    elif filters is not None and colors is None:
+        print("only filters")
+        options = getOptions(
+            category_id=category_id, db=db, filters=filters, colors=None
+        )
+        variation_item_name = []
+        variation_name = []
+        for filter in filters:
+            variation_name.append(filter.filter_name)
+            for name in filter.filter_item_names:
+                variation_item_name.append(name)
+        color_counts_subquery = (
+            db.query(
+                Product.color, Product.color_hex, func.count().label("product_count")
+            )
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .join(Variation, Product.product_id == Variation.product_id)
+            .join(VariationItem, Variation.variation_id == VariationItem.variation_id)
+            .filter(VariationItem.variation_item_name.in_(variation_item_name))
+            .group_by(Product.color, Product.color_hex)
+            .subquery()
+        )
+    elif filters is not None and colors is not None:
+        print("both filters and colors")
+        options = getOptions(
+            category_id=category_id, db=db, filters=filters, colors=colors
+        )
+        variation_item_name = []
+        variation_name = []
+        for filter in filters:
+            variation_name.append(filter.filter_name)
+            for name in filter.filter_item_names:
+                variation_item_name.append(name)
+        color_counts_subquery = (
+            db.query(
+                Product.color, Product.color_hex, func.count().label("product_count")
+            )
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .join(Variation, Product.product_id == Variation.product_id)
+            .join(VariationItem, Variation.variation_id == VariationItem.variation_id)
+            .filter(VariationItem.variation_item_name.in_(variation_item_name))
+            .group_by(Product.color, Product.color_hex)
+            .subquery()
+        )
+    else:
+        print("No filter")
+        options = getOptions(category_id=category_id, db=db, filters=None, colors=None)
+        color_counts_subquery = (
+            db.query(
+                Product.color, Product.color_hex, func.count().label("product_count")
+            )
+            .join(SKU, SKU.sku_id == Product.sku_id)
+            .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
+            .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
+            .filter(Category.category_id == category_id)
+            .group_by(Product.color, Product.color_hex)
+            .subquery()
+        )
+
+    # Query to select colors with their counts
+    products_color = db.query(
+        color_counts_subquery.c.color,
+        color_counts_subquery.c.color_hex,
+        color_counts_subquery.c.product_count,
+    ).all()
+
+    # Format the result
+    result = [
+        {"color": color, "color_hex": color_hex, "product_count": product_count}
+        for color, color_hex, product_count in products_color
+    ]
+
+    return {"options": options, "colors": result}
 
 
 ####################################################################
