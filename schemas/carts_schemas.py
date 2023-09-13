@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from schemas import products_schemas
 
 class CartBase(BaseModel):
-    quantity: int
     product_id: str
     user_id: str
     variation_item_id:str

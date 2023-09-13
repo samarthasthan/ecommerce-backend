@@ -66,12 +66,14 @@ class ProductImageOut(BaseModel):
     
 
 class VariationItemsOut(BaseModel):
+    variation_item_id:str
     variation_item_name:str
     stock:int
     regular_price: float
     sale_price: float
 
 class VariationOut(BaseModel):
+    variation_id:str
     variation_name:str
     variation_items:List[VariationItemsOut]
 
@@ -81,6 +83,8 @@ class ProductOut(BaseModel):
     product_description: str
     color: str
     color_hex: str
+    in_cart:bool = False
+    in_wishlist:bool = False
     product_details: List[ProductDetailOut]
     product_images: List[ProductImageOut]
     variations:List[VariationOut]

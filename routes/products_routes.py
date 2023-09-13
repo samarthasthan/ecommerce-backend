@@ -18,6 +18,8 @@ from models import (
     SKU,
     SKUCategoryAssociation,
     User,
+    Cart,
+    WishList,
     Variation,
     VariationItem,
 )
@@ -32,6 +34,7 @@ from schemas.products_schemas import (
 import models
 from sqlalchemy.orm import joinedload, defer, load_only
 from constants import base_url
+from utils import verify_token, verify_token_optional
 
 
 router = APIRouter(tags=["Product"])
@@ -51,7 +54,9 @@ def get_product_image(product_id: str, size: str, image_name: str):
 
 
 @router.get("/product", response_model=SKUOut)
-def get_product(sku_id: str, db: SessionLocal = Depends(get_db)):
+def get_product(
+    sku_id: str, user_id: Optional[str] = None, db: SessionLocal = Depends(get_db)
+):
     sku = (
         db.query(SKU)
         .filter(SKU.sku_id == sku_id)  # Filter by SKU ID
@@ -75,12 +80,43 @@ def get_product(sku_id: str, db: SessionLocal = Depends(get_db)):
             image.medium_image_url = f"{base_url}{image.medium_image_url}"
             image.large_image_url = f"{base_url}{image.large_image_url}"
 
+    # Check if user_id is provided and the products are in the user's cart
+    if user_id:
+        user_cart_items = (
+            db.query(Cart)
+            .filter(Cart.user_id == user_id)
+            .filter(
+                Cart.product_id.in_([product.product_id for product in sku.products])
+            )
+            .all()
+        )
+        user_cart_product_ids = {item.product_id for item in user_cart_items}
+        for product in sku.products:
+            product.in_cart = product.product_id in user_cart_product_ids
+
+    # Check if user_id is provided and the products are in the user's wish list
+    if user_id:
+        user_wish_items = (
+            db.query(WishList)
+            .filter(WishList.user_id == user_id)
+            .filter(
+                WishList.product_id.in_(
+                    [product.product_id for product in sku.products]
+                )
+            )
+            .all()
+        )
+        user_wish_product_ids = {item.product_id for item in user_wish_items}
+        for product in sku.products:
+            product.in_wishlist = product.product_id in user_wish_product_ids
+
     return sku
 
 
 @router.get("/products")
 def get_products(
     category_id: str,
+    user_id: Optional[str] = None,
     page: int = Query(1, description="Page number", ge=1),
     per_page: int = Query(10, description="Items per page", le=1000),
     db: SessionLocal = Depends(get_db),
@@ -93,7 +129,7 @@ def get_products(
         .join(SKU, SKU.sku_id == Product.sku_id)
         .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
         .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
-        .filter(Category.category_id == category_id)
+        # .filter(Category.category_id == category_id)
         .join(Variation, Product.product_id == Variation.product_id)
         .join(VariationItem, Variation.variation_id == VariationItem.variation_id)
         .join(ProductImage, Product.product_id == ProductImage.product_id)
@@ -103,17 +139,44 @@ def get_products(
         .all()
     )
 
-    products = [
-        {
-            "sku_id": product.sku_id,
-            "product_id": product.product_id,
-            "product_name": product.product_name,
-            "product_image": f"{base_url}{product.product_images[0].small_image_url}",
-            "regular_price": product.variations[0].variation_items[0].regular_price,
-            "sale_price": product.variations[0].variation_items[0].sale_price,
-        }
-        for product in products
-    ]
+    if user_id:
+        user_cart_items = db.query(Cart).filter(Cart.user_id == user_id).all()
+        user_wish_items = db.query(WishList).filter(WishList.user_id == user_id).all()
+
+        user_cart_product_ids = {item.product_id for item in user_cart_items}
+        user_wish_product_ids = {item.product_id for item in user_wish_items}
+
+        for product in products:
+            product.in_cart = product.product_id in user_cart_product_ids
+            product.in_wishlist = product.product_id in user_wish_product_ids
+
+        products = [
+            {
+                "sku_id": product.sku_id,
+                "product_id": product.product_id,
+                "product_name": product.product_name,
+                "product_image": f"{base_url}{product.product_images[0].small_image_url}",
+                "regular_price": product.variations[0].variation_items[0].regular_price,
+                "sale_price": product.variations[0].variation_items[0].sale_price,
+                "in_cart": product.in_cart,
+                "in_wishlist": product.in_wishlist,
+            }
+            for product in products
+        ]
+    else:
+        products = [
+            {
+                "sku_id": product.sku_id,
+                "product_id": product.product_id,
+                "product_name": product.product_name,
+                "product_image": f"{base_url}{product.product_images[0].small_image_url}",
+                "regular_price": product.variations[0].variation_items[0].regular_price,
+                "sale_price": product.variations[0].variation_items[0].sale_price,
+                "in_cart": False,
+                "in_wishlist": False,
+            }
+            for product in products
+        ]
 
     return products
 
@@ -218,7 +281,6 @@ def get_products(
             "sale_price": product.variations[0].variation_items[0].sale_price,
             # "color":product.color,
             # "variation": product.variations,
-            
         }
         for product in products
     ]
@@ -241,7 +303,7 @@ def getOptions(category_id, db, filters, colors):
             .join(SKU, SKU.sku_id == Product.sku_id)
             .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
             .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
-            .filter(Category.category_id == category_id)
+            # .filter(Category.category_id == category_id)
             .group_by(Variation.variation_name, VariationItem.variation_item_name)
             .all()
         )
@@ -258,7 +320,7 @@ def getOptions(category_id, db, filters, colors):
             .join(SKU, SKU.sku_id == Product.sku_id)
             .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
             .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
-            .filter(Category.category_id == category_id)
+            # .filter(Category.category_id == category_id)
             .group_by(Variation.variation_name, VariationItem.variation_item_name)
             .all()
         )
@@ -276,7 +338,7 @@ def getOptions(category_id, db, filters, colors):
             .join(SKU, SKU.sku_id == Product.sku_id)
             .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
             .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
-            .filter(Category.category_id == category_id)
+            # .filter(Category.category_id == category_id)
             .group_by(Variation.variation_name, VariationItem.variation_item_name)
             .all()
         )
@@ -293,7 +355,7 @@ def getOptions(category_id, db, filters, colors):
             .join(SKU, SKU.sku_id == Product.sku_id)
             .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
             .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
-            .filter(Category.category_id == category_id)
+            # .filter(Category.category_id == category_id)
             .group_by(Variation.variation_name, VariationItem.variation_item_name)
             .all()
         )
@@ -328,7 +390,7 @@ def get_options(
             .join(SKU, SKU.sku_id == Product.sku_id)
             .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
             .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
-            .filter(Category.category_id == category_id)
+            # .filter(Category.category_id == category_id)
             .group_by(Product.color, Product.color_hex)
             .subquery()
         )
@@ -350,7 +412,7 @@ def get_options(
             .join(SKU, SKU.sku_id == Product.sku_id)
             .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
             .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
-            .filter(Category.category_id == category_id)
+            # .filter(Category.category_id == category_id)
             .join(Variation, Product.product_id == Variation.product_id)
             .join(VariationItem, Variation.variation_id == VariationItem.variation_id)
             .filter(VariationItem.variation_item_name.in_(variation_item_name))
@@ -375,7 +437,7 @@ def get_options(
             .join(SKU, SKU.sku_id == Product.sku_id)
             .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
             .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
-            .filter(Category.category_id == category_id)
+            # .filter(Category.category_id == category_id)
             .join(Variation, Product.product_id == Variation.product_id)
             .join(VariationItem, Variation.variation_id == VariationItem.variation_id)
             .filter(VariationItem.variation_item_name.in_(variation_item_name))
@@ -392,7 +454,7 @@ def get_options(
             .join(SKU, SKU.sku_id == Product.sku_id)
             .join(SKUCategoryAssociation, SKUCategoryAssociation.sku_id == SKU.sku_id)
             .join(Category, Category.category_id == SKUCategoryAssociation.category_id)
-            .filter(Category.category_id == category_id)
+            # .filter(Category.category_id == category_id)
             .group_by(Product.color, Product.color_hex)
             .subquery()
         )

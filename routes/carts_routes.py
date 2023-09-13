@@ -15,6 +15,8 @@ async def get_cart(email: str = Depends(verify_token), db: SessionLocal = Depend
     cart_products = (
         db.query(models.Product)
         .join(models.Cart, models.Product.product_id == models.Cart.product_id)
+        .join(models.User,models.User.user_id==models.Cart.user_id)
+        .filter(models.User.email==email)
         .join(models.Variation, models.Product.product_id == models.Variation.product_id)
         .join(models.VariationItem, models.Variation.variation_id == models.VariationItem.variation_id)
         .join(models.ProductImage, models.Product.product_id == models.ProductImage.product_id)
@@ -40,13 +42,16 @@ async def get_cart(email: str = Depends(verify_token), db: SessionLocal = Depend
 
 @router.post("/cart")
 async def add_products_to_cart(
-    details: carts_schemas.CartBase, db: SessionLocal = Depends(get_db)
+    details: carts_schemas.CartBase,email: str = Depends(verify_token), db: SessionLocal = Depends(get_db)
 ):
-    new_item= models.Cart(**details.dict())
-    db.add(new_item)
-    db.commit()
-    db.refresh(new_item)
-    return new_item
+    
+    if email:
+        new_item= models.Cart(**details.dict())
+        new_item.quantity=1
+        db.add(new_item)
+        db.commit()
+        db.refresh(new_item)
+        return new_item
 
 @router.patch("/cart")
 async def change_product_quantity(
